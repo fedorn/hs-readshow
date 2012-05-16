@@ -7,7 +7,6 @@ import Control.Monad
 
 data Format = D | L String
 
--- Парсер строки форматирования – преобразовывает её в структуру Format
 parse :: String -> String -> [Format]
 parse       "" rest  = [L rest]
 parse ('@':xs) rest  =  L rest : D : parse xs ""
@@ -20,30 +19,21 @@ genPE n = do
     ids <- replicateM n (newName "x")
     return (map varP ids, map varE ids)
 
-showClause :: Con -> [Format] -> Q Clause
-showClause (NormalC name fields) format = do
-    let constructorName = nameBase name
-    (pats,vars) <- genPE (length fields)
-        
-    let f [] [] = [| "" |]
-        f [] [L s] = [| s |]
-        f vars (L s:xs) = [| s ++ $(f vars xs) |]
-        f (v:vars) (D:xs) = [| show $v ++ $(f vars xs) |]
-                
-    clause [conP name pats]
-           (normalB [| $(f vars format) |]) []
-
 deriveShow :: Name -> String -> Q [Dec]
 deriveShow t fstr = do
-    TyConI (DataD _ _ _ constructors _) <- reify t
+  TyConI (DataD _ _ _ [NormalC name fields] _) <- reify t
+  
+  (pats, vars) <- genPE (length fields)
 
-    showbody <- showClause (head constructors) (parse fstr "")
+  let f [] [] = [| "" |]
+      f [] [L s] = [| s |]
+      f vars (L s:xs) = [| s ++ $(f vars xs) |]
+      f (v:vars) (D:xs) = [| show $v ++ $(f vars xs) |]      
 
-    d <- [d| instance Show T1 where
-                show x = "text"
-          |]
-    let    [InstanceD [] (AppT showt (ConT _T1)) [FunD showf _text]] = d
-    return [InstanceD [] (AppT showt (ConT t  )) [FunD showf [showbody]]]
+  [d| instance Show $(conT t) where
+        show = $(lamE [(conP name pats)] (f vars (parse fstr "")))|]
+
+-- readClause :: Con
 
 -- deriveRead :: Name -> String -> Q [Dec]
--- deriveRead name fstr = [d|instance Read $(conT name) where readsPrec _ _ = 1|]
+-- deriveRead name fstr = [d|instance Read $(conT name) where readsPrec _ s = [|]
