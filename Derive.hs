@@ -48,10 +48,10 @@ deriveRead t fstr = do
                       return [(NoBindS (TupE [foldl AppE (ConE name) vars, r]))]
         buildComp vars (L s:xs) r = do
                       rr <- newName "rr"
-                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE $ mkName "lex") (r))) :) <$> (buildComp vars xs (VarE rr))
+                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'lex) (r))) :) <$> (buildComp vars xs (VarE rr))
         buildComp (v:vars) (D:xs) r = do
                       rr <- newName "rr"
-                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE $ mkName "reads") (r)) (AppT ListT (AppT (AppT (TupleT 2) (ConT $ mkName "Integer")) (ConT $ mkName "String"))) )) :) <$> (buildComp vars xs (VarE rr))
+                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE 'reads) (r)) (AppT ListT (AppT (AppT (TupleT 2) (ConT ''Integer)) (ConT ''String))) )) :) <$> (buildComp vars xs (VarE rr))
 
 
     [d|instance Read $(conT t) where
