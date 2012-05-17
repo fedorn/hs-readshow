@@ -58,6 +58,17 @@ deriveRead t fstr = do
           readsPrec _ = $(do s <- newName "s"
                              lamE [varP s] (CompE <$> (buildComp pats (parse fstr "") (VarE s) ) )) |]
 
+-- instance Read T where
+--   readsPrec _ s = [(A x1 x2 x3, r) |
+--                    ("(", r1) <- lex s,
+--                    (x1,  r2) <- reads r1,
+--                    (",", r3) <- lex r2,
+--                    (x2, r4) <- reads r3,
+--                    (",", r5) <- lex r4,
+--                    (x3, r6) <- reads r5,
+--                    (")", r) <- lex r6]
+
+
 deriveReadShow :: Name -> String -> Q [Dec]
 deriveReadShow t fstr =
-  (deriveRead t fstr) >> (deriveShow t fstr)
+  liftM2 (++) (deriveRead t fstr) (deriveShow t fstr)
