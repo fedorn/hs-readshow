@@ -9,7 +9,9 @@ import Control.Applicative
 data Format = D | L String deriving Show
 
 parse :: String -> String -> [Format]
+parse       "" ""    = []
 parse       "" rest  = [L rest]
+parse ('@':xs) ""    =  D : parse xs ""
 parse ('@':xs) rest  =  L rest : D : parse xs ""
 parse   (x:xs) rest  =  parse xs (rest++[x])
 
@@ -37,6 +39,9 @@ genPE :: Int -> Q ([Pat], [Exp])
 genPE n = do
     ids <- replicateM n (newName "x")
     return (map VarP ids, map VarE ids)
+    
+split' :: String -> [(String, String)]
+split' xs = map (\n -> splitAt n xs) [0..(length xs)]
 
 deriveRead :: Name -> String -> Q [Dec]
 deriveRead t fstr = do
@@ -48,7 +53,7 @@ deriveRead t fstr = do
                       return [(NoBindS (TupE [foldl AppE (ConE name) vars, r]))]
         buildComp vars (L s:xs) r = do
                       rr <- newName "rr"
-                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'lex) (r))) :) <$> (buildComp vars xs (VarE rr))
+                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'split') (r))) :) <$> (buildComp vars xs (VarE rr))
         buildComp (v:vars) (D:xs) r = do
                       rr <- newName "rr"
                       ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE 'reads) (r)) (AppT ListT (AppT (AppT (TupleT 2) (ConT ''Integer)) (ConT ''String))) )) :) <$> (buildComp vars xs (VarE rr))
