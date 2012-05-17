@@ -4,8 +4,9 @@ module Derive where
 
 import Language.Haskell.TH
 import Control.Monad
+import Control.Applicative
 
-data Format = D | L String
+data Format = D | L String deriving Show
 
 parse :: String -> String -> [Format]
 parse       "" rest  = [L rest]
@@ -14,8 +15,8 @@ parse   (x:xs) rest  =  parse xs (rest++[x])
 
 data T1 = T1
 
-genPE :: Int -> Q ([PatQ], [ExpQ])
-genPE n = do
+genQPE :: Int -> Q ([PatQ], [ExpQ])
+genQPE n = do
     ids <- replicateM n (newName "x")
     return (map varP ids, map varE ids)
 
@@ -23,17 +24,40 @@ deriveShow :: Name -> String -> Q [Dec]
 deriveShow t fstr = do
   TyConI (DataD _ _ _ [NormalC name fields] _) <- reify t
   
-  (pats, vars) <- genPE (length fields)
+  (pats, vars) <- genQPE (length fields)
 
-  let f [] [] = [| "" |]
-      f [] [L s] = [| s |]
+  let f _ [] = [| "" |]
       f vars (L s:xs) = [| s ++ $(f vars xs) |]
       f (v:vars) (D:xs) = [| show $v ++ $(f vars xs) |]      
 
   [d| instance Show $(conT t) where
         show = $(lamE [(conP name pats)] (f vars (parse fstr "")))|]
 
--- readClause :: Con
+genPE :: Int -> Q ([Pat], [Exp])
+genPE n = do
+    ids <- replicateM n (newName "x")
+    return (map VarP ids, map VarE ids)
 
--- deriveRead :: Name -> String -> Q [Dec]
--- deriveRead name fstr = [d|instance Read $(conT name) where readsPrec _ s = [|]
+deriveRead :: Name -> String -> Q [Dec]
+deriveRead t fstr = do
+    TyConI (DataD _ _ _ [NormalC name fields] _) <- reify t
+    (pats, vars) <- genPE (length fields)
+    let format = parse fstr ""
+    let buildComp :: [Pat] -> [Format] -> Exp -> Q [Stmt]
+        buildComp _ [] r = do
+                      return [(NoBindS (TupE [foldl AppE (ConE name) vars, r]))]
+        buildComp vars (L s:xs) r = do
+                      rr <- newName "rr"
+                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE $ mkName "lex") (r))) :) <$> (buildComp vars xs (VarE rr))
+        buildComp (v:vars) (D:xs) r = do
+                      rr <- newName "rr"
+                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE $ mkName "reads") (r)) (AppT ListT (AppT (AppT (TupleT 2) (ConT $ mkName "Integer")) (ConT $ mkName "String"))) )) :) <$> (buildComp vars xs (VarE rr))
+
+
+    [d|instance Read $(conT t) where
+          readsPrec _ = $(do s <- newName "s"
+                             lamE [varP s] (CompE <$> (buildComp pats (parse fstr "") (VarE s) ) )) |]
+
+deriveReadShow :: Name -> String -> Q [Dec]
+deriveReadShow t fstr =
+  (deriveRead t fstr) >> (deriveShow t fstr)
