@@ -29,7 +29,7 @@ deriveShow t fstr = do
         [NormalC name fields] -> (name, length fields) 
         [RecC name fields] -> (name, length fields)
   
-  (pats, vars) <- genQPE (lenFields)
+  (pats, vars) <- genQPE lenFields
 
   let f _ [] = [| "" |]
       f vars (L s:xs) = [| s ++ $(f vars xs) |]
@@ -49,25 +49,25 @@ split' xs = map (\n -> splitAt n xs) [0..(length xs)]
 deriveRead :: Name -> String -> Q [Dec]
 deriveRead t fstr = do
     TyConI (DataD _ _ _ constr _) <- reify t
-    let (name, lenFields) = case constr of
-          [NormalC name fields] -> (name, length fields) 
-          [RecC name fields] -> (name, length fields)
-    (pats, vars) <- genPE (lenFields)
+    let (name, lenFields, types) = case constr of
+          [NormalC name fields] -> (name, length fields, map (\(_, t) -> t) fields) 
+          [RecC name fields] -> (name, length fields, map (\(_, _, t) -> t) fields)
+    (pats, vars) <- genPE lenFields
     let format = parse fstr ""
-    let buildComp :: [Pat] -> [Format] -> Exp -> Q [Stmt]
-        buildComp _ [] r = do
+    let buildComp :: [Type] -> [Pat] -> [Format] -> Exp -> Q [Stmt]
+        buildComp _ _ [] r = do
                       return [(NoBindS (TupE [foldl AppE (ConE name) vars, r]))]
-        buildComp vars (L s:xs) r = do
+        buildComp types vars (L s:xs) r = do
                       rr <- newName "rr"
-                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'split') (r))) :) <$> (buildComp vars xs (VarE rr))
-        buildComp (v:vars) (D:xs) r = do
+                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'split') (r))) :) <$> (buildComp types vars xs (VarE rr))
+        buildComp (t:types) (v:vars) (D:xs) r = do
                       rr <- newName "rr"
-                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE 'reads) (r)) (AppT ListT (AppT (AppT (TupleT 2) (ConT ''Integer)) (ConT ''String))) )) :) <$> (buildComp vars xs (VarE rr))
+                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE 'reads) (r)) (AppT ListT (AppT (AppT (TupleT 2) t) (ConT ''String))) )) :) <$> (buildComp types vars xs (VarE rr))
 
 
     [d|instance Read $(conT t) where
           readsPrec _ = $(do s <- newName "s"
-                             lamE [varP s] (CompE <$> (buildComp pats (parse fstr "") (VarE s) ) )) |]
+                             lamE [varP s] (CompE <$> (buildComp types pats (parse fstr "") (VarE s) ) )) |]
 
 -- instance Read T where
 --   readsPrec _ s = [(A x1 x2 x3, r) |
