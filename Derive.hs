@@ -24,9 +24,12 @@ genQPE n = do
 
 deriveShow :: Name -> String -> Q [Dec]
 deriveShow t fstr = do
-  TyConI (DataD _ _ _ [NormalC name fields] _) <- reify t
+  TyConI (DataD _ _ _ constr _) <- reify t
+  let (name, lenFields) = case constr of
+        [NormalC name fields] -> (name, length fields) 
+        [RecC name fields] -> (name, length fields)
   
-  (pats, vars) <- genQPE (length fields)
+  (pats, vars) <- genQPE (lenFields)
 
   let f _ [] = [| "" |]
       f vars (L s:xs) = [| s ++ $(f vars xs) |]
@@ -45,8 +48,11 @@ split' xs = map (\n -> splitAt n xs) [0..(length xs)]
 
 deriveRead :: Name -> String -> Q [Dec]
 deriveRead t fstr = do
-    TyConI (DataD _ _ _ [NormalC name fields] _) <- reify t
-    (pats, vars) <- genPE (length fields)
+    TyConI (DataD _ _ _ constr _) <- reify t
+    let (name, lenFields) = case constr of
+          [NormalC name fields] -> (name, length fields) 
+          [RecC name fields] -> (name, length fields)
+    (pats, vars) <- genPE (lenFields)
     let format = parse fstr ""
     let buildComp :: [Pat] -> [Format] -> Exp -> Q [Stmt]
         buildComp _ [] r = do

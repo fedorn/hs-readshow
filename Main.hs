@@ -4,8 +4,13 @@ module Main where
 
 import Derive
 
-data T = A Integer Integer Integer
-deriveReadShow ''T "Radius:@, X:@, Y:@"
+data Vector = Vector Integer Integer
+deriveReadShow ''Vector "(@, @)"
 
-main = do print $ A 11 33 30
-          print $ (read "Radius:5, X:1, Y:2" :: T)
+data Circle = Circle { radius :: Integer, x :: Integer, y :: Integer }
+deriveReadShow ''Circle "Radius: @, X: @, Y: @"
+
+main = do print $ Vector 11 33
+          print $ (read "(7, 10)" :: Vector)
+          print $ Circle 2 1 3
+          print $ (read "Radius: 5, X: 10, Y: 11" :: Circle)
