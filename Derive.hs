@@ -15,7 +15,20 @@ parse ""   ('@':xs) =  D : parse "" xs
 parse rest ('@':xs) =  L rest : D : parse "" xs
 parse rest (x:xs)   =  parse (rest++[x]) xs
 
-data T1 = T1
+nameOfConstr :: Con -> Name
+nameOfConstr constructor = case constructor of
+  NormalC name _ -> name
+  RecC    name _ -> name
+        
+nFieldsOfConstr :: Con -> Int
+nFieldsOfConstr constructor = case constructor of
+  NormalC _ fields -> length fields
+  RecC    _ fields -> length fields
+  
+typeFieldsOfConstr :: Con -> [Type]
+typeFieldsOfConstr constructor = case constructor of
+  NormalC _ fields -> map (\(_, t) -> t) fields
+  RecC    _ fields -> map (\(_, _, t) -> t) fields 
 
 genQPE :: Int -> Q ([PatQ], [ExpQ])
 genQPE n = do
@@ -25,14 +38,6 @@ genQPE n = do
 deriveShow :: Name -> [String] -> Q [Dec]
 deriveShow t formatStrings = do
   TyConI (DataD _ _ _ constructors _) <- reify t
-  
-  let nameOfConstr constructor = case constructor of
-        NormalC name _ -> name
-        RecC    name _ -> name
-        
-  let nFieldsOfConstr constructor = case constructor of
-        NormalC _ fields -> length fields
-        RecC    _ fields -> length fields
         
   let f _ [] = [| "" |]
       f vars (L s:xs) = [| s ++ $(f vars xs) |]
@@ -55,27 +60,32 @@ genPE n = do
 split' :: String -> [(String, String)]
 split' xs = map (\n -> splitAt n xs) [0..(length xs)]
 
-deriveRead :: Name -> String -> Q [Dec]
-deriveRead t fstr = do
-    TyConI (DataD _ _ _ constr _) <- reify t
-    let (name, lenFields, types) = case constr of
-          [NormalC name fields] -> (name, length fields, map (\(_, t) -> t) fields) 
-          [RecC name fields] -> (name, length fields, map (\(_, _, t) -> t) fields)
-    (pats, vars) <- genPE lenFields
-    let buildComp :: [Type] -> [Pat] -> [Format] -> Exp -> Q [Stmt]
-        buildComp _ _ [] r = do
-                      return [(NoBindS (TupE [foldl AppE (ConE name) vars, r]))]
-        buildComp types vars (L s:xs) r = do
-                      rr <- newName "rr"
-                      ((BindS (TupP [LitP (StringL s), VarP rr]) (AppE (VarE 'split') (r))) :) <$> (buildComp types vars xs (VarE rr))
-        buildComp (t:types) (v:vars) (D:xs) r = do
-                      rr <- newName "rr"
-                      ((BindS (TupP [v, VarP rr]) (SigE (AppE (VarE 'reads) (r)) (AppT ListT (AppT (AppT (TupleT 2) t) (ConT ''String))) )) :) <$> (buildComp types vars xs (VarE rr))
+buildComp :: Con -> [Format] -> Exp -> Q [Stmt]
+buildComp constructor pattern rest = do
+  (pats, vars) <- genPE (nFieldsOfConstr constructor)
+  let buildCompH :: [Type] -> [Pat] -> [Format] -> Exp -> Q [Stmt]
+      buildCompH _ _ [] rest = do
+        return [(NoBindS (TupE [foldl AppE (ConE $ nameOfConstr constructor) vars, rest]))]
+      buildCompH types vars (L s:xs) rest = do
+        inRest <- newName "inRest"
+        ((BindS (TupP [LitP (StringL s), VarP inRest]) (AppE (VarE 'split') (rest))) :) <$> (buildCompH types vars xs (VarE inRest))
+      buildCompH (t:types) (v:vars) (D:xs) rest = do
+        inRest <- newName "inRest"
+        ((BindS (TupP [v, VarP inRest]) (SigE (AppE (VarE 'reads) (rest)) (AppT ListT (AppT (AppT (TupleT 2) t) (ConT ''String))) )) :) <$> (buildCompH types vars xs (VarE inRest))
+  buildCompH (typeFieldsOfConstr constructor) pats pattern rest
 
-
+deriveRead :: Name -> [String] -> Q [Dec]
+deriveRead t formatStrings = do
+    TyConI (DataD _ _ _ constructors _) <- reify t
     [d|instance Read $(conT t) where
-          readsPrec _ = $(do s <- newName "s"
-                             lamE [varP s] (CompE <$> (buildComp types pats (parse "" fstr) (VarE s) ) )) |]
+          readsPrec _ =
+            $(do s <- newName "s"
+                 lamE [varP s]
+                      (appE [| foldl (++) [] |]
+                            (listE (zipWith
+                                   (\constructor formatString ->
+                                     (CompE <$> (buildComp constructor (parse "" formatString) (VarE s))))
+                                   constructors formatStrings)))) |]
 
 -- instance Read T where
 --   readsPrec _ s = [(A x1 x2 x3, r) |
@@ -90,4 +100,4 @@ deriveRead t fstr = do
 
 deriveReadShow :: Name -> [String] -> Q [Dec]
 deriveReadShow t formatStrings =
-  liftM2 (++) (deriveRead t (head formatStrings)) (deriveShow t formatStrings)
+  liftM2 (++) (deriveRead t formatStrings) (deriveShow t formatStrings)
