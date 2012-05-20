@@ -20,7 +20,7 @@ data Boolean = True' | False'
 deriveReadShow ''Boolean ["true", "false"]
 
 data List' = Cons' Integer List' | Nil'
-deriveReadShow ''List' ["@:@", "nil"]
+deriveReadShow ''List' ["@ \\@ @", "nil"]
 
 data Tree = Leaf Integer | Branch Tree Tree
 deriveReadShow ''Tree ["@", "<@|@>"]
@@ -48,7 +48,7 @@ main = do
   putStrLn "-- List'"
   print $ Cons' 4 (Cons' 7 (Cons' 9 Nil'))
   print $ (read "nil" :: List')
-  print $ (read "7:6:45:nil" :: List')
+  print $ (read "7 @ 6 @ 45 @ nil" :: List')
   putStrLn "-- Tree (from Gentle Introduction to Haskell)"
   print $ Branch (Leaf 1) (Branch (Leaf 2) (Leaf 3))
   print $ (read "<<7|<4|5>>|9>" :: Tree)

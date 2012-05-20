@@ -9,11 +9,12 @@ import Control.Applicative
 data Format = D | L String deriving Show
 
 parse :: String -> String -> [Format]
-parse ""   ""       = []
-parse rest ""       = [L rest]
-parse ""   ('@':xs) =  D : parse "" xs
-parse rest ('@':xs) =  L rest : D : parse "" xs
-parse rest (x:xs)   =  parse (rest++[x]) xs
+parse ""   ""             = []
+parse rest ""             = [L rest]
+parse rest ('\\':'@':xs)  = parse (rest++"@") xs
+parse ""   ('@':xs)       = D : parse "" xs
+parse rest ('@':xs)       = L rest : D : parse "" xs
+parse rest (x:xs)         = parse (rest++[x]) xs
 
 nameOfConstr :: Con -> Name
 nameOfConstr constructor = case constructor of
