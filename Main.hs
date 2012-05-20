@@ -16,6 +16,9 @@ deriveReadShow ''Employee ["Emp { Name: @, Height: @, Salary: $@; Coordinates: @
 data Figure = Segment Dot Dot | Triangle Dot Dot Dot | Quadrange Dot Dot Dot Dot
 deriveShow ''Figure ["-@, @-", "<@, @, @>", "[@, @, @, @]"]
 
+data List' = Cons' Integer List' | Nil'
+deriveShow ''List' ["@:@", "[]"]
+
 main = do print $ Dot 11 33
           print $ (read "(7, 10)" :: Dot)
           print $ Circle 2 1 3
@@ -25,3 +28,4 @@ main = do print $ Dot 11 33
           print $ Segment (Dot 1 2) (Dot 3 4)
           print $ Triangle (Dot 5 6) (Dot 7 8) (Dot 8 9)
           print $ Quadrange (Dot 10 11) (Dot 12 13) (Dot 14 15) (Dot 16 17)
+          print $ Cons' 4 (Cons' 7 (Cons' 9 Nil'))
