@@ -38,7 +38,9 @@ genQPE n = do
 
 deriveShow :: Name -> [String] -> Q [Dec]
 deriveShow t formatStrings = do
-  TyConI (DataD _ _ _ constructors _) <- reify t
+  TyConI (DataD _ _ typeVars constructors _) <- reify t
+  
+  let typeVarsTypes = map (\(PlainTV name) -> VarT name) typeVars
         
   let f _ [] = [| "" |]
       f vars (L s:xs) = [| s ++ $(f vars xs) |]
@@ -51,7 +53,7 @@ deriveShow t formatStrings = do
           
   showbody <- zipWithM showClause constructors (map (parse "") formatStrings)
 
-  return [InstanceD [] (AppT (ConT ''Show) (ConT t)) [FunD 'show showbody]]
+  return [InstanceD (if null typeVars then [] else [ClassP ''Show typeVarsTypes]) (AppT (ConT ''Show) (foldl AppT (ConT t) typeVarsTypes)) [FunD 'show showbody]]
 
 genPE :: Int -> Q ([Pat], [Exp])
 genPE n = do
@@ -77,16 +79,19 @@ buildComp constructor pattern rest = do
 
 deriveRead :: Name -> [String] -> Q [Dec]
 deriveRead t formatStrings = do
-    TyConI (DataD _ _ _ constructors _) <- reify t
-    [d|instance Read $(conT t) where
-          readsPrec _ =
-            $(do s <- newName "s"
-                 lamE [varP s]
-                      (appE [| foldl (++) [] |]
-                            (listE (zipWith
-                                   (\constructor formatString ->
-                                     (CompE <$> (buildComp constructor (parse "" formatString) (VarE s))))
-                                   constructors formatStrings)))) |]
+    TyConI (DataD _ _ typeVars constructors _) <- reify t
+    
+    let typeVarsTypes = map (\(PlainTV name) -> VarT name) typeVars
+    
+    (sPatList, sExpList) <- genPE 1
+    let sP = head sPatList
+        sE = head sExpList
+    fmap (:[]) (instanceD (return (if null typeVars then [] else [ClassP ''Read typeVarsTypes])) (return (AppT (ConT ''Read) (foldl AppT (ConT t) typeVarsTypes))) 
+                      [funD 'readsPrec [clause [wildP, return sP]
+                                               (normalB (appE [| foldl (++) [] |]
+                                                              (listE (zipWith (\constructor formatString ->
+                                                                                (CompE <$> (buildComp constructor (parse "" formatString) sE)))
+                                                                              constructors formatStrings)))) []]])
 
 -- instance Read T where
 --   readsPrec _ s = [(A x1 x2 x3, r) |
@@ -101,4 +106,4 @@ deriveRead t formatStrings = do
 
 deriveReadShow :: Name -> [String] -> Q [Dec]
 deriveReadShow t formatStrings =
-  liftM2 (++) (deriveRead t formatStrings) (deriveShow t formatStrings)
+  liftM2 (++) (deriveShow t formatStrings) (deriveRead t formatStrings)
