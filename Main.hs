@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell #-}
+{-# LANGUAGE TemplateHaskell, ScopedTypeVariables #-}
 
 module Main where
 
@@ -25,12 +25,17 @@ deriveReadShow ''List' ["@ \\@ @", "nil"]
 data Tree = Leaf Integer | Branch Tree Tree
 deriveReadShow ''Tree ["@", "<@|@>"]
 
-data List'' a = Cons'' a (List'' a) | Nil''
-deriveShow ''List'' ["@:@", "[]"]
+data Expr = I Integer
+          | Add Expr Expr
+          | Mul Expr Expr
+          deriving Show
+deriveRead ''Expr ["@", "(@+@)", "(@*@)"]
 
---data Just'' a = Just'' a
---instance Read a => Read (Just'' a) where
---  readsPrec _ s = [(q, w) <- reads s :: [(a, String)]]
+data List'' a = Cons'' a (List'' a) | Nil''
+deriveReadShow ''List'' ["@:@", "[]"]
+
+data Either' a b = Left' a | Right' b
+deriveReadShow ''Either' ["<- @", "-> @"]
 
 main = do
   putStrLn "-- Dot"
@@ -59,6 +64,11 @@ main = do
   putStrLn "-- Tree (from Gentle Introduction to Haskell)"
   print $ Branch (Leaf 1) (Branch (Leaf 2) (Leaf 3))
   print $ (read "<<7|<4|5>>|9>" :: Tree)
+  putStrLn "-- Arithmetic"
+  print $ (read "((2+2)*(4+7))" :: Expr)
   putStrLn "-- List with type parameter"
   print $ Cons'' 4 (Cons'' 7 (Cons'' 9 Nil''))
---  print $ (read "7:3:23:[]" :: (List'' Integer))
+  print $ (read "(4, 5):(5, 4):(7, 8):[]" :: (List'' Dot))
+  putStrLn "-- Either"
+  print $ (Left' "I'm on the left" :: Either' String Integer)
+  print $ (read "-> \"I'm on the right\"" :: (Either' Integer String))

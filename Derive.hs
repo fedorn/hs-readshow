@@ -1,4 +1,4 @@
-{-# LANGUAGE TemplateHaskell, FlexibleInstances #-}
+{-# LANGUAGE TemplateHaskell #-}
 
 module Derive where
 
@@ -53,7 +53,7 @@ deriveShow t formatStrings = do
           
   showbody <- zipWithM showClause constructors (map (parse "") formatStrings)
 
-  return [InstanceD (if null typeVars then [] else [ClassP ''Show typeVarsTypes]) (AppT (ConT ''Show) (foldl AppT (ConT t) typeVarsTypes)) [FunD 'show showbody]]
+  return [InstanceD (if null typeVars then [] else (map (ClassP ''Show) $ map (replicate 1) typeVarsTypes)) (AppT (ConT ''Show) (foldl AppT (ConT t) typeVarsTypes)) [FunD 'show showbody]]
 
 genPE :: Int -> Q ([Pat], [Exp])
 genPE n = do
@@ -86,7 +86,7 @@ deriveRead t formatStrings = do
     (sPatList, sExpList) <- genPE 1
     let sP = head sPatList
         sE = head sExpList
-    fmap (:[]) (instanceD (return (if null typeVars then [] else [ClassP ''Read typeVarsTypes])) (return (AppT (ConT ''Read) (foldl AppT (ConT t) typeVarsTypes))) 
+    fmap (:[]) (instanceD (return (if null typeVars then [] else (map (ClassP ''Read) $ map (replicate 1) typeVarsTypes))) (return (AppT (ConT ''Read) (foldl AppT (ConT t) typeVarsTypes))) 
                       [funD 'readsPrec [clause [wildP, return sP]
                                                (normalB (appE [| foldl (++) [] |]
                                                               (listE (zipWith (\constructor formatString ->
