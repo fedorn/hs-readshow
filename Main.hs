@@ -37,6 +37,9 @@ deriveReadShow ''List'' ["@:@", "[]"]
 data Either' a b = Left' a | Right' b
 deriveReadShow ''Either' ["<- @", "-> @"]
 
+data KeyValue a b = KeyValue a b
+deriveReadShow ''KeyValue ["@ => @"]
+
 main = do
   putStrLn "-- Dot"
   print $ Dot 11 33
@@ -72,3 +75,6 @@ main = do
   putStrLn "-- Either"
   print $ (Left' "I'm on the left" :: Either' String Integer)
   print $ (read "-> \"I'm on the right\"" :: (Either' Integer String))
+  putStrLn "-- KeyValue"
+  print $ (KeyValue "John" 5)
+  print $ (read "\"Jacob\" => 7" :: (KeyValue String Integer))
