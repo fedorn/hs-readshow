@@ -51,6 +51,7 @@
 \papercolumns 1
 \papersides 1
 \paperpagestyle default
+\listings_params "language=Haskell"
 \tracking_changes false
 \output_changes false
 \html_math_output 0
@@ -106,10 +107,10 @@ data List a = Nil | Cons a (List a)
 \end_layout
 
 \begin_layout Standard
-Типы могут принадлежать классами типов, определяющими над ними определенные
+Типы могут принадлежать классам типов, определяющими над ними определенные
  функции.
- Вывод типа в строку осуществляется с помощью функции show из класса Read.
- Считывание из строки осуществляется с помощью функции read из класса Show.
+ Вывод типа в строку осуществляется с помощью функции show из класса Show.
+ Считывание из строки осуществляется с помощью функции read из класса Read.
 \end_layout
 
 \begin_layout Standard
@@ -133,8 +134,8 @@ read :: Read a => String -> a
 \end_layout
 
 \begin_layout Standard
-В Haskell существует механизм производных экземпряров, когда тип можно сделать
- экземпляром стандартных классов, в том числе Read и Show.
+В Haskell существует механизм производных экземпляров (deriving), когда
+ тип можно сделать экземпляром стандартных классов, в том числе Read и Show.
  В этом случае текстовое представление соответствует тому, которых используется
  в самом Haskell.
  Обычно это неприемлемо, и приходится самому писать отдельно парсер и принтер
@@ -160,8 +161,196 @@ key "replaying"
 \end_inset
 
 , в которых схожая задача решается с помощью введения функций, работающих
- в обоих направлениях, и описания парсинга и принтинга на их основе, что
- больше похоже на разбиение проблемы на подпроблемы, вместо её решения.
+ в обоих направлениях, и описания парсера и принтера на их основе, что больше
+ похоже на разбиение проблемы на подпроблемы, вместо её решения.
+\end_layout
+
+\begin_layout Section
+Реализация с помодью введения класса типов
+\end_layout
+
+\begin_layout Standard
+Изначально планировалось решить задачу с помощью введения нового типа, описывающ
+его грамматику языка, представляющего тип, и тайпкласса ReadShow c функциями
+ toGrammar и readGrammar, переводящими пользователский тип в тип грамматики
+ и обратно.
+ Пользователь должен бы был делать свой тип экземпляром ReadShow и он бы
+ автоматически делался экземпляром классов Read и Show.
+ В упрощенном виде это могло выглядеть так:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+{-# LANGUAGE FlexibleInstances #-}
+\end_layout
+
+\begin_layout Plain Layout
+
+{-# LANGUAGE UndecidableInstances #-}
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+module ReadShow where
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+data RSGrammar = Concat [RSGrammar]
+\end_layout
+
+\begin_layout Plain Layout
+
+--             | Kleene RSGrammar
+\end_layout
+
+\begin_layout Plain Layout
+
+               | Lit String
+\end_layout
+
+\begin_layout Plain Layout
+
+--             deriving Show
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+showGrammar :: RSGrammar -> String
+\end_layout
+
+\begin_layout Plain Layout
+
+showGrammar (Lit s) = s
+\end_layout
+
+\begin_layout Plain Layout
+
+showGrammar (Concat []) = ""
+\end_layout
+
+\begin_layout Plain Layout
+
+showGrammar (Concat (x:xs)) = (showGrammar x ++ showGrammar (Concat xs))
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+class ReadShow a where
+\end_layout
+
+\begin_layout Plain Layout
+
+    toGrammar :: a -> RSGrammar
+\end_layout
+
+\begin_layout Plain Layout
+
+--  fromGrammar :: RSGrammar -> a
+\end_layout
+
+\begin_layout Plain Layout
+
+  
+\end_layout
+
+\begin_layout Plain Layout
+
+instance (ReadShow rs) => (Show rs) where
+\end_layout
+
+\begin_layout Plain Layout
+
+  show rs = showGrammar (toGrammar rs)
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data Abc = A | B | C | Pair Abc Abc
+\end_layout
+
+\begin_layout Plain Layout
+
+\end_layout
+
+\begin_layout Plain Layout
+
+instance ReadShow Abc where
+\end_layout
+
+\begin_layout Plain Layout
+
+  toGrammar A = Lit "A"
+\end_layout
+
+\begin_layout Plain Layout
+
+  toGrammar B = Lit "B"
+\end_layout
+
+\begin_layout Plain Layout
+
+  toGrammar C = Lit "C"
+\end_layout
+
+\begin_layout Plain Layout
+
+  toGrammar (Pair one two) = Concat [Lit "(", toGrammar one, Lit ", ",
+\end_layout
+
+\begin_layout Plain Layout
+
+                                     toGrammar two, Lit ")"]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Возникла проблема, что на чистом Haskell 98 экземпляром класса должен являться
+ конкретный тип, одного контекста недостаточно.
+ Кроме того, при таком решении все-таки надо описывать две функции: переводящую
+ тип в грамматику и обратно.
+ Возможно, получилось бы как-то вывести вторую функцию из первой или просто
+ использовать её при парсинге, но опять же, на чистом Haskell это, скорее
+ всего, не получилось бы сделать.
+\end_layout
+
+\begin_layout Section
+Решение с помощью Template Haskell
 \end_layout
 
 \begin_layout Bibliography
