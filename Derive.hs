@@ -107,6 +107,7 @@ buildComp constructor pattern rest = do
         ((BindS (TupP [LitP (StringL s), VarP inRest]) (AppE (VarE 'split') (rest))) :) <$> (buildCompH types pats xs (VarE inRest))
         
       -- Statement in case of D. In example it is `(x1,  r2) <- reads r1,`
+      -- Users should use ScopedTypeVariables GHC extension
       buildCompH (t:types) (p:pats) (D:xs) rest = do
         inRest <- newName "inRest"
         ((BindS (TupP [p, VarP inRest]) (SigE (AppE (VarE 'reads) (rest)) (AppT ListT (AppT (AppT (TupleT 2) t) (ConT ''String))) )) :) <$> (buildCompH types pats xs (VarE inRest))
@@ -125,7 +126,7 @@ deriveRead t formatStrings = do
     let sP = head sPatList
         sE = head sExpList
         
-    -- Return proper instance declaration, with context and t applied for its field types. See basic idea above to understand readsPred body.
+    -- Return proper instance declaration, with context and t applied for its field types. See basic idea above to understand readsPrec body.
     fmap (:[]) (instanceD (return (if null typeVars then [] else (map (ClassP ''Read) $ map (replicate 1) typeVarsTypes))) (return (AppT (ConT ''Read) (foldl AppT (ConT t) typeVarsTypes))) 
                       [funD 'readsPrec [clause [wildP, return sP]
                                                (normalB (appE [| foldl (++) [] |]

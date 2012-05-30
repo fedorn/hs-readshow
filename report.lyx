@@ -186,20 +186,6 @@ status open
 
 \begin_layout Plain Layout
 
-{-# LANGUAGE FlexibleInstances #-}
-\end_layout
-
-\begin_layout Plain Layout
-
-{-# LANGUAGE UndecidableInstances #-}
-\end_layout
-
-\begin_layout Plain Layout
-
-\end_layout
-
-\begin_layout Plain Layout
-
 module ReadShow where
 \end_layout
 
@@ -349,8 +335,126 @@ instance ReadShow Abc where
  всего, не получилось бы сделать.
 \end_layout
 
+\begin_layout Standard
+Стоит отметить, что после включения GHC расширений FlexibleInstances и Undecidab
+leInstances для тайпклассов вышеприведенный код начинал работать, однако
+ ломался Show у типов, которые инстанциировались от него непосредственно,
+ например, у стандартных типов.
+\end_layout
+
 \begin_layout Section
 Решение с помощью Template Haskell
+\end_layout
+
+\begin_layout Standard
+Для решения обозначенных проблем решено было использовать Template Haskell.
+\end_layout
+
+\begin_layout Standard
+Template Haskell — это расширение языка Haskell, предназначенное для метапрограм
+мирования.
+ Оно даёт возможность алгоритмического построения программы на стадии компиляции.
+ Это позволяет разработчику использовать различные техники программирования,
+ не доступные в самом Haskell, такие как, макро-подобные расширения, обобщённое
+ программирование, генерация вспомогательных структур данных и функций из
+ имеющихся.
+\end_layout
+
+\begin_layout Standard
+Для нас полезной возможностью Template Haskell оказалась возможность генерироват
+ь instance объявления нужных типов.
+\end_layout
+
+\begin_layout Standard
+По ходу работы обнаружилось, что описывать алгебраические типы с помощью
+ грамматик излишне, так как они сами отчасти ими являются: примитивные типы
+ можно рассматривать как терминалы, а конструкторы типов - как правила вывода
+ из нетерминалов.
+ Парсеры и принтеры для примитивных типов нам уже предоставлены Haskell,
+ осталось сделать их для конструкторов.
+ Конструктор имеет вид ИмяКонструктора Поле1 Поле2 ...
+ .
+ Очевидное описание его текстового представления - это строка, где как-то
+ обозначены места, где должны находиться текстовые представления его полей.
+ В работе был выбран формат, где эти места обозначаются символом '@'.
+ Так как тип - это набор конструторов, он описывается списком описаний конструкт
+оров.
+ В итоге описание типов выглядит следующим образом:
+\end_layout
+
+\begin_layout Standard
+Описание вектора как двух числел в скобках, разделенных запятой:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data Vector = Vector Float Float
+\end_layout
+
+\begin_layout Plain Layout
+
+deriveReadShow ''Dot ["(@, @)"]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Описание бинарного дерева из 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "gentle"
+
+\end_inset
+
+:
+\end_layout
+
+\begin_layout Standard
+\begin_inset listings
+inline false
+status open
+
+\begin_layout Plain Layout
+
+data Tree a = Leaf a | Branch (Tree a) (Tree a)
+\end_layout
+
+\begin_layout Plain Layout
+
+deriveReadShow ''Tree ["@", "<@|@>"]
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Standard
+Реализация принтера и парсера большей частью выполнена на Template Haskell.
+ Строки фортатирования перед работой переводятся во внутреннее представление.
+ Стрящийся принтер работает довольно очевидным образом на основе паттерн-матчинг
+а.
+ Парсер работает на основе list comprehensions, идея взята из 
+\begin_inset CommandInset citation
+LatexCommand cite
+key "gentle"
+
+\end_inset
+
+.
+ Была проделана работа по поддержке различных способов объявления типов
+ и конструкторов: поддерживаются типы с одним или несколькими параметрами,
+ конструкторы с метками полей.
+ Практически, поддреживаются все виды конструкторов, о которых рассказывается
+ в большинстве литературы по Haskell.
 \end_layout
 
 \begin_layout Bibliography
@@ -384,6 +488,22 @@ key "replaying"
 М.
  Boespflug.
  Functional Pearl: Replaying the stack for parsing and pretty printing.
+\end_layout
+
+\begin_layout Bibliography
+\begin_inset CommandInset bibitem
+LatexCommand bibitem
+key "gentle"
+
+\end_inset
+
+P.
+ Hudak, J.
+ Peterson, J.
+ H.
+ Fasel.
+ A Gentle Introduction to Haskell 98.
+ October, 1999.
 \end_layout
 
 \end_body
