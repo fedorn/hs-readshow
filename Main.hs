@@ -8,7 +8,7 @@ data Vector = Vector Float Float
 deriveReadShow ''Vector ["(@, @)"]
 
 data Employee = Employee { name :: String, heigth :: Float, salary :: Integer, coords :: Vector }
-deriveReadShow ''Employee ["Emp { Name: @, Height: @, Salary: $@; Coordinates: @ }"]
+deriveReadShow ''Employee ["Emp { Name: @, Height: @, Salary: $@, Coordinates: @ }"]
 
 data Figure = Segment Vector Vector | Triangle Vector Vector Vector | Quadrange Vector Vector Vector Vector
 deriveReadShow ''Figure ["-@, @-", "<@, @, @>", "[@, @, @, @]"]
@@ -42,7 +42,7 @@ main = do
   putStrLn ""
   putStrLn "-- Employee"
   print $ Employee "Stephen Hawking" 1.7 1000 (Vector 44 55)
-  print $ (read "Emp { Name: \"Albert Einstein\", Height: 1.6, Salary: $900; Coordinates: (9, 7) }" :: Employee)
+  print $ (read "Emp { Name: \"Albert Einstein\", Height: 1.6, Salary: $900, Coordinates: (9, 7) }" :: Employee)
   putStrLn ""
   putStrLn "-- Figure"
   print $ Triangle (Vector 5 6) (Vector 7 8) (Vector 8 9)
