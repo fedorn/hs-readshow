@@ -21,20 +21,23 @@ parse rest (x:xs)         = parse (rest++[x]) xs
 -- Extract name from constructor
 nameOfConstr :: Con -> Name
 nameOfConstr constructor = case constructor of
-  NormalC name _ -> name
-  RecC    name _ -> name
+  NormalC  name _ -> name
+  RecC     name _ -> name
+  InfixC _ name _ -> name
 
 -- Extract number of fields from constructor
 nFieldsOfConstr :: Con -> Int
 nFieldsOfConstr constructor = case constructor of
   NormalC _ fields -> length fields
   RecC    _ fields -> length fields
+  InfixC  _ _ _    -> 2
 
 -- Extract types of fields from constructor
 typeFieldsOfConstr :: Con -> [Type]
 typeFieldsOfConstr constructor = case constructor of
   NormalC _ fields -> map (\(_, t) -> t) fields
   RecC    _ fields -> map (\(_, _, t) -> t) fields 
+  InfixC x _ y -> map (\(_, t) -> t) [x, y]
 
 -- Generate n unique variables and return them in form of patterns and expressions wrapped in Q monad
 genQPE :: Int -> Q ([PatQ], [ExpQ])
