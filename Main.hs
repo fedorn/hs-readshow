@@ -25,8 +25,9 @@ data Expr = I Integer
           deriving Show
 deriveRead ''Expr ["@", "(@+@)", "(@*@)"]
 
-data List' a = Nil' | Cons' a (List' a)
-deriveReadShow ''List' ["[]", "@ : @"]
+infixr 5 :-:
+data List a = Empty | a :-: (List a)
+deriveReadShow ''List ["[]", "@ : @"]
 
 data Either' a b = Left' a | Right' b
 deriveReadShow ''Either' ["<- @", "-> @"]
@@ -59,9 +60,9 @@ main = do
   putStrLn "-- Arithmetic"
   print $ (read "((2+2)*(4+7))" :: Expr)
   putStrLn ""
-  putStrLn "-- List with type parameter"
-  print $ Cons' 4 (Cons' 7 (Cons' 9 Nil'))
-  print $ (read "(4, 5) : (5, 4) : (7, 8) : []" :: (List' Vector))
+  putStrLn "-- Infix list with type parameter (from LYaHfGG)"
+  print $ 4 :-: 7 :-: 9 :-: Empty
+  print $ (read "(4, 5) : (5, 4) : (7, 8) : []" :: (List Vector))
   putStrLn ""
   putStrLn "-- Either"
   print $ (Left' "I'm on the left" :: Either' String Integer)
